@@ -27,9 +27,9 @@ describe("Staking Contract", function () {
     Staking = await StakingContract.deploy(ERC20Token.address);
     await ERC20Token.transfer(addr1.address, qty);
   });
-  describe("debug", async function() {
-    it("Does not accept ether", async function() {
-      const params = {to: Staking.address, value: ethers.utils.parseEther("1.0")};
+  describe("debug", async function () {
+    it("Does not accept ether", async function () {
+      const params = { to: Staking.address, value: ethers.utils.parseEther("1.0") };
       await expect(owner.sendTransaction(params)).to.be.reverted;
       await expect(addr1.sendTransaction(params)).to.be.reverted;
     });
@@ -158,11 +158,11 @@ describe("Staking Contract", function () {
       expect(await ERC20Token.balanceOf(addr1.address)).to.equal("100000000000000000000000");
       expect(await Staking.totalSupply()).to.equal("22140274190171270240817");
     });
-    it("Allows regular users to withdrawAll", async function() {
+    it("Allows regular users to withdrawAll", async function () {
       await expect(Staking.connect(addr1).withdrawAll())
         .to.emit(Staking, 'Withdrawn')
         .to.not.emit(Staking, "Staked");
-      expect(await Staking.balanceOf(addr1.address)).to.equal("0");
+        expect(await Staking.balanceOf(addr1.address)).to.equal("0");
       expect(await ERC20Token.balanceOf(addr1.address)).to.equal("122140274190171270240817");
       expect(await Staking.totalSupply()).to.equal("0");
     });

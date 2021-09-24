@@ -46,6 +46,7 @@ contract Staking is Ownable, ReentrancyGuard {
     IERC20 public stakingToken;
     uint256 private _totalSupply;
     uint256 private _periodFinish;
+    address[] private _stakers;
     mapping(address => uint256) private _stake;
     mapping(address => uint256) private _updated;
 
@@ -85,6 +86,7 @@ contract Staking is Ownable, ReentrancyGuard {
     {
         _totalSupply += amount;
         _stake[msg.sender] += amount;
+        _stakers.push(msg.sender);
         stakingToken.transferFrom(msg.sender, address(this), amount);
         emit Staked(msg.sender, amount);
     }
@@ -144,6 +146,24 @@ contract Staking is Ownable, ReentrancyGuard {
         IERC20 theToken = IERC20(addr);
         theToken.transfer(msg.sender, amt);
         emit Recovered(addr, amt);
+    }
+
+    function tokensNeeded() public view returns(uint256) {
+        address[] memory counted;
+        uint256 needed = _totalSupply;
+        uint stakersLen = _stakers.length;
+        for(uint i=0; i < stakersLen; i++) {
+            bool found = false;
+            uint countedLen = counted.length;
+            for(uint j=0; j < countedLen; j++) {
+                if (counted[j] == _stakers[i]) {
+                    found = true;
+                }
+            }
+            if (found) continue;
+            needed += _stake[_stakers[i]] + rewardsOf(_stakers[i]);
+        }
+        return needed;
     }
 
     modifier updateRewards(address addr) {
