@@ -8,27 +8,24 @@ const r = {
   m12: "22140275739388350171449",
 };
 describe("Staking Contract", function () {
-  let CarrContract;
+  let ERC20TokenContract;
   let StakingContract;
-  let CarrToken;
+  let ERC20Token;
   let Staking;
   let owner;
   let addr1;
   let addr2;
   let addrs;
   let depositTime;
-  let walletOwner;
-  let wallet1;
-  let wallets;
 
   before(async function () {
     [owner, addr1, addr2, ...addrs] = await ethers.getSigners();
-    CarrContract = await ethers.getContractFactory("CARR");
+    ERC20TokenContract = await ethers.getContractFactory("CARR");
     // [walletOwner, wallet1, ...wallets] = ethers.getWallets();
     StakingContract = await ethers.getContractFactory("Staking");
-    CarrToken = await CarrContract.deploy();
-    Staking = await StakingContract.deploy(CarrToken.address);
-    await CarrToken.transfer(addr1.address, qty);
+    ERC20Token = await ERC20TokenContract.deploy();
+    Staking = await StakingContract.deploy(ERC20Token.address);
+    await ERC20Token.transfer(addr1.address, qty);
   });
   describe("debug", async function() {
     it("Does not accept ether", async function() {
@@ -70,21 +67,21 @@ describe("Staking Contract", function () {
     })
     describe("Carr Management", async function () {
       it("Has an balance of CARR tokens to distribute", async function () {
-        expect(await CarrToken.balanceOf(Staking.address)).to.equal("5000000000000000000000000");
+        expect(await ERC20Token.balanceOf(Staking.address)).to.equal("5000000000000000000000000");
       });
       it("Can receive CARR directly", async function () {
-        await CarrToken.transfer(Staking.address, "1000")
-        expect(await CarrToken.balanceOf(Staking.address)).to.equal("5000000000000000000001000");
+        await ERC20Token.transfer(Staking.address, "1000")
+        expect(await ERC20Token.balanceOf(Staking.address)).to.equal("5000000000000000000001000");
       });
       it("Can recover CARR to owner address", async function () {
-        await expect(Staking.recoverERC20(CarrToken.address, "1000")).to.emit(Staking, "Recovered").withArgs(CarrToken.address, "1000")
-        expect(await CarrToken.balanceOf(Staking.address)).to.equal("5000000000000000000000000");
+        await expect(Staking.recoverERC20(ERC20Token.address, "1000")).to.emit(Staking, "Recovered").withArgs(ERC20Token.address, "1000")
+        expect(await ERC20Token.balanceOf(Staking.address)).to.equal("5000000000000000000000000");
       });
     });
   });
   describe("Active", async function () {
     it("Accepts deposits", async function () {
-      await CarrToken.approve(Staking.address, qty);  // owner stakes qty
+      await ERC20Token.approve(Staking.address, qty);  // owner stakes qty
       await expect(Staking.stake(qty)).to.emit(Staking, 'Staked').withArgs(owner.address, qty);
       depositTime = (await ethers.provider.getBlock(await ethers.provider.getBlockNumber())).timestamp;
       expect(await Staking.balanceOf(owner.address)).to.equal(qty);
@@ -93,7 +90,7 @@ describe("Staking Contract", function () {
       expect(await Staking.rewardsOf(owner.address)).to.equal("0");
     });
     it("Allows deposits from regular users", async function () {
-      await CarrToken.connect(addr1).approve(Staking.address, qty);  // owner stakes qty
+      await ERC20Token.connect(addr1).approve(Staking.address, qty);  // owner stakes qty
       await expect(Staking.connect(addr1).stake(qty)).to.emit(Staking, 'Staked').withArgs(addr1.address, qty);
       expect(await Staking.balanceOf(addr1.address)).to.equal(qty);
     });
@@ -120,7 +117,7 @@ describe("Staking Contract", function () {
   });
   describe("Finished", async function () {
     it("Stops accepting deposits", async function () {
-      // await CarrToken.approve(Staking.address, qty);  // owner stakes qty
+      // await ERC20Token.approve(Staking.address, qty);  // owner stakes qty
       await expect(Staking.stake(qty)).to.be.revertedWith("Staking period has ended");
     });
     it("Stops increasing rewards", async function () {
@@ -138,7 +135,7 @@ describe("Staking Contract", function () {
         .to.emit(Staking, "Withdrawn").withArgs(owner.address, qty)
         .to.emit(Staking, 'Staked').withArgs(owner.address, r.m12);
       expect(await Staking.balanceOf(owner.address)).to.equal(r.m12);
-      expect(await CarrToken.balanceOf(owner.address)).to.equal("4900000000000000000000000");
+      expect(await ERC20Token.balanceOf(owner.address)).to.equal("4900000000000000000000000");
     });
     it("Has expected totalSupply", async function () {
       expect(await Staking.totalSupply()).to.equal("122140275739388350171449");
@@ -148,7 +145,7 @@ describe("Staking Contract", function () {
         .to.emit(Staking, "Withdrawn").withArgs(owner.address, r.m12)
         .to.not.emit(Staking, "Staked");
       expect(await Staking.balanceOf(owner.address)).to.equal(0);
-      expect(await CarrToken.balanceOf(owner.address)).to.equal("4922140275739388350171449");
+      expect(await ERC20Token.balanceOf(owner.address)).to.equal("4922140275739388350171449");
     });
     it("Has expected totalSupply", async function () {
       expect(await Staking.totalSupply()).to.equal("100000000000000000000000");
@@ -158,7 +155,7 @@ describe("Staking Contract", function () {
         .to.emit(Staking, 'Withdrawn').withArgs(addr1.address, qty)
         .to.emit(Staking, 'Staked').withArgs(addr1.address, "22140274190171270240817");
       expect(await Staking.balanceOf(addr1.address)).to.equal("22140274190171270240817");
-      expect(await CarrToken.balanceOf(addr1.address)).to.equal("100000000000000000000000");
+      expect(await ERC20Token.balanceOf(addr1.address)).to.equal("100000000000000000000000");
       expect(await Staking.totalSupply()).to.equal("22140274190171270240817");
     });
     it("Allows regular users to withdrawAll", async function() {
@@ -166,17 +163,17 @@ describe("Staking Contract", function () {
         .to.emit(Staking, 'Withdrawn')
         .to.not.emit(Staking, "Staked");
       expect(await Staking.balanceOf(addr1.address)).to.equal("0");
-      expect(await CarrToken.balanceOf(addr1.address)).to.equal("122140274190171270240817");
+      expect(await ERC20Token.balanceOf(addr1.address)).to.equal("122140274190171270240817");
       expect(await Staking.totalSupply()).to.equal("0");
     });
     it("Can receive CARR directly", async function () {
-      await CarrToken.transfer(Staking.address, qty)
-      expect(await CarrToken.balanceOf(Staking.address)).to.equal("5055719450070440379587734");
+      await ERC20Token.transfer(Staking.address, qty)
+      expect(await ERC20Token.balanceOf(Staking.address)).to.equal("5055719450070440379587734");
     });
     it("Can recover CARR to owner address", async function () {
       const q = "55719450070440379587734";
-      await expect(Staking.recoverERC20(CarrToken.address, q)).to.emit(Staking, "Recovered").withArgs(CarrToken.address, q)
-      expect(await CarrToken.balanceOf(Staking.address)).to.equal("5000000000000000000000000");
+      await expect(Staking.recoverERC20(ERC20Token.address, q)).to.emit(Staking, "Recovered").withArgs(ERC20Token.address, q)
+      expect(await ERC20Token.balanceOf(Staking.address)).to.equal("5000000000000000000000000");
     });
 
   });
