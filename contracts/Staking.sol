@@ -48,6 +48,7 @@ contract Staking is Ownable, ReentrancyGuard {
     uint256 private _periodFinish;
     address[] private _stakers;
     mapping(address => uint256) private _stake;
+    mapping(address => uint256) private _earned;
     mapping(address => uint256) private _updated;
 
     event Recovered(address token, uint256 amount);
@@ -75,7 +76,10 @@ contract Staking is Ownable, ReentrancyGuard {
     }
 
     function total() external view hasBalance(msg.sender) returns (uint256) {
-        return _stake[msg.sender] + _getNewRewards(msg.sender);
+        return
+            _stake[msg.sender] +
+            _earned[msg.sender] +
+            _getNewRewards(msg.sender);
     }
 
     function stake(uint256 amount)
@@ -87,6 +91,7 @@ contract Staking is Ownable, ReentrancyGuard {
         _totalSupply += amount;
         _stake[msg.sender] += amount;
         _stakers.push(msg.sender);
+        _earned[msg.sender] = 0;
         stakingToken.transferFrom(msg.sender, address(this), amount);
         emit Staked(msg.sender, amount);
     }
@@ -98,7 +103,10 @@ contract Staking is Ownable, ReentrancyGuard {
         updateRewards(msg.sender)
     {
         require(amount > 0, "You must specify a positive amount of money");
-        require(_stake[msg.sender] >= amount, "Not enough tokens");
+        require(
+            _stake[msg.sender] + _earned[msg.sender] >= amount,
+            "Not enough tokens"
+        );
         _withdraw(msg.sender, amount);
     }
 
@@ -108,7 +116,7 @@ contract Staking is Ownable, ReentrancyGuard {
         hasBalance(msg.sender)
         updateRewards(msg.sender)
     {
-        _withdraw(msg.sender, _stake[msg.sender]);
+        _withdraw(msg.sender, _stake[msg.sender] + _earned[msg.sender]);
     }
 
     function _withdraw(address to, uint256 amount)
@@ -118,23 +126,28 @@ contract Staking is Ownable, ReentrancyGuard {
     {
         require(amount <= _totalSupply, "Not enough tokens");
         _totalSupply -= amount;
-        _stake[to] -= amount;
+        if (amount > _earned[to]) {
+            _stake[to] -= amount - _earned[to];
+            _earned[to] = 0;
+        } else {
+            _earned[to] -= amount;
+        }
         stakingToken.transfer(to, amount);
         emit Withdrawn(to, amount);
     }
 
     function rewardsOf(address addr) public view returns (uint256) {
-        return _getNewRewards(addr);
+        return _earned[addr] + _getNewRewards(addr);
     }
 
     function _getNewRewards(address addr) private view returns (uint256) {
         uint256 etime = _lastTimeRewardApplicable() - _updated[addr];
-        if (etime == 0 || _stake[addr] == 0) {
+        if (etime == 0 || _stake[addr] + _earned[addr] == 0) {
             return 0;
         }
         // _ratio = 6341958397; // 20% apr : This represents === Rate / Time * 10^18 === .20 / 31536000 * 10^18
-        uint256 reward = Utility.compound(_stake[addr], 6341958397, etime);
-        return reward - _stake[addr];
+        uint256 reward = Utility.compound(_stake[addr]+_earned[addr], 6341958397, etime);
+        return reward - _stake[addr] - _earned[addr];
     }
 
     function setFinish(uint256 _finish) external onlyOwner {
@@ -148,20 +161,20 @@ contract Staking is Ownable, ReentrancyGuard {
         emit Recovered(addr, amt);
     }
 
-    function tokensNeeded() public view returns(uint256) {
+    function tokensNeeded() public view returns (uint256) {
         address[] memory counted;
         uint256 needed = _totalSupply;
-        uint stakersLen = _stakers.length;
-        for(uint i=0; i < stakersLen; i++) {
+        uint256 stakersLen = _stakers.length;
+        for (uint256 i = 0; i < stakersLen; i++) {
             bool found = false;
-            uint countedLen = counted.length;
-            for(uint j=0; j < countedLen; j++) {
+            uint256 countedLen = counted.length;
+            for (uint256 j = 0; j < countedLen; j++) {
                 if (counted[j] == _stakers[i]) {
                     found = true;
                 }
             }
             if (found) continue;
-            needed += _stake[_stakers[i]] + rewardsOf(_stakers[i]);
+            needed += _stake[_stakers[i]] + _earned[_stakers[i]] + rewardsOf(_stakers[i]);
         }
         return needed;
     }
@@ -170,7 +183,7 @@ contract Staking is Ownable, ReentrancyGuard {
         uint256 newRewards = _getNewRewards(addr);
         _updated[addr] = _lastTimeRewardApplicable();
         if (newRewards > 0) {
-            _stake[addr] += newRewards;
+            _earned[addr] += newRewards;
             _totalSupply += newRewards;
             emit Staked(addr, newRewards);
         }
@@ -183,7 +196,7 @@ contract Staking is Ownable, ReentrancyGuard {
     }
 
     modifier hasBalance(address addr) {
-        require(_stake[addr] > 0, "No balance");
+        require(_stake[addr] + _earned[addr] > 0, "No balance");
         _;
     }
 }
