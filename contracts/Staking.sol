@@ -87,7 +87,7 @@ contract Staking is Ownable, ReentrancyGuard {
         _totalSupply += amount;
         _stake[msg.sender] += amount;
         _stakers.push(msg.sender);
-        stakingToken.transferFrom(msg.sender, address(this), amount);
+        require(stakingToken.transferFrom(msg.sender, address(this), amount), "Token Transfer Failed");
         emit Staked(msg.sender, amount);
     }
 
@@ -119,7 +119,7 @@ contract Staking is Ownable, ReentrancyGuard {
         require(amount <= _totalSupply, "Not enough tokens");
         _totalSupply -= amount;
         _stake[to] -= amount;
-        stakingToken.transfer(to, amount);
+        require(stakingToken.transfer(to, amount), "Token Transfer Failed");
         emit Withdrawn(to, amount);
     }
 
@@ -144,7 +144,7 @@ contract Staking is Ownable, ReentrancyGuard {
 
     function recoverERC20(address addr, uint256 amt) public onlyOwner {
         IERC20 theToken = IERC20(addr);
-        theToken.transfer(msg.sender, amt);
+        require(theToken.transfer(msg.sender, amt), "Token Transfer Failed");
         emit Recovered(addr, amt);
     }
 
